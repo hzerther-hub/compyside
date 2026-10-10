@@ -211,3 +211,7 @@ src/compositor/
 ## 许可证
 
 MIT——衍生自 [robbietilton/Compositor](https://github.com/robbietilton/Compositor)（同为 MIT 许可）。
+
+---
+
+🌐 [English](README.md) | 简体中文

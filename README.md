@@ -241,3 +241,7 @@ Key architectural rule: **`document/` and `rendering/` never import Qt**. They t
 ## License
 
 MIT — derived from [robbietilton/Compositor](https://github.com/robbietilton/Compositor), which is MIT.
+
+---
+
+🌐 English | [简体中文](README.zh-CN.md)
