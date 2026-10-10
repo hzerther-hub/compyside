@@ -28,7 +28,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSizePolicy,
     QStatusBar,
-    QToolBar,
     QVBoxLayout,
     QWidget,
 )
@@ -141,6 +140,14 @@ QPushButton {
 }
 """
 
+# Docks reachable from View ▸ Panels. Closing a dock only hides it, so there
+# has to be a way back or the panel is gone for the rest of the session.
+_PANEL_DOCKS = (
+    ("&Layers", "_layers_dock"),
+    ("&Transform", "_transform_dock"),
+    ("T&ools", "_tools_dock"),
+)
+
 
 class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
     def __init__(self) -> None:
@@ -178,8 +185,12 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
         self._current_state: Optional[ProjectState] = None
 
         # Menu + toolbar.
-        self._build_menu()
+        # Panel visibility is tracked here rather than read back from the
+        # docks, because a dock that was just built has not been shown yet.
+        self._panel_visibility = {attr: True for _label, attr in _PANEL_DOCKS}
+        # The tool dock first: the View ▸ Panels submenu binds to it.
         self._build_toolbar()
+        self._build_menu()
         self._refresh_menu_state()
         self.setStatusBar(QStatusBar(self))
 
@@ -195,8 +206,17 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
         # parented to the bar (a Qt quirk). Delete them explicitly so a
         # rebuild doesn't leak stale menus that later title lookups — and
         # the user — could confuse for the live ones.
+        #
+        # Only *top-level* menus belong in ``_top_menus``. A submenu is
+        # reparented to the menu it hangs off, so it dies with that parent
+        # and calling deleteLater on it afterwards raises. The guard keeps a
+        # synchronous rebuild (no QTimer tick in between to drain the
+        # deferred deletions) from blowing up on the second stale entry.
         for stale in getattr(self, "_top_menus", []):
-            stale.deleteLater()
+            try:
+                stale.deleteLater()
+            except RuntimeError:
+                pass  # already destroyed with its parent menu
         self._top_menus: List = []
         self._menus: Dict[str, List[Tuple[str, str, Callable[[], None]]]] = {}
         self._menu_actions: Dict[str, List[QAction]] = {}
@@ -289,7 +309,7 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
             ("Tonal &Contrast…", "", lambda: self._apply_adjustment(AdjustmentKind.TONAL_CONTRAST)),
             ("&Lens Correction…", "", lambda: self._apply_adjustment(AdjustmentKind.LENS_CORRECTION)),
         ])
-        add("&View", [
+        view_menu = add("&View", [
             ("Zoom &In", self._shortcuts.get("View > Zoom In"), self._zoom_in),
             ("Zoom &Out", self._shortcuts.get("View > Zoom Out"), self._zoom_out),
             ("Fit on &Screen", self._shortcuts.get("View > Fit on Screen"), self._fit_window),
@@ -297,6 +317,7 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
             ("Toggle &Grid", self._shortcuts.get("View > Toggle Grid"), self._toggle_grid),
             ("Toggle &Fullscreen", self._shortcuts.get("View > Toggle Fullscreen"), self._toggle_fullscreen),
         ])
+        self._add_panels_menu(view_menu)
         add("&Tools", self._tool_menu_items())
         add("&Photoshop", [
             ("&Connect to Photoshop…", "", self._photoshop_connect),
@@ -322,14 +343,14 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
         self._language_group = QActionGroup(self)
         self._language_group.setExclusive(True)
         for code, native_label in i18n.available_languages():
-            act = QAction(native_label, self, checkable=True)
+            act = QAction(native_label, self)
+            act.setCheckable(True)
             act.setChecked(code == i18n.current_language())
             act.triggered.connect(lambda _=False, c=code: self._switch_language(c))
             lang_menu.addAction(act)
             self._language_group.addAction(act)
             self._language_actions[code] = act
         help_menu.addMenu(lang_menu)
-        self._top_menus.append(lang_menu)
 
         # Rebuild the command palette aggregator with translated names.
         self._command_index = {}
@@ -392,11 +413,12 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
 
     def _rebuild_ui(self) -> None:
         self._build_menu()
-        self._build_toolbar()
+        self._refresh_tool_labels()
         self._refresh_menu_state()
         # The docks are built once, so their titles need the new language too.
         self._layers_dock.setWindowTitle(tr("Layers"))
         self._transform_dock.setWindowTitle(tr("Transform"))
+        self._tools_dock.setWindowTitle(tr("Tools"))
         self._refresh_tool_panels()
         self._refresh_canvas_placeholder()
 
@@ -426,20 +448,17 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
     def _build_toolbar(self) -> None:
         """Tool buttons down the left edge, each label flush left.
 
-        Every translation has a different label width, so centre-aligned
-        buttons read as a ragged staircase. QToolBar centres its button text
-        and ignores ``text-align``; QToolButton widgets do too. A QPushButton
-        with ``text-align: left`` actually honours it, so the tool list is a
-        column of those, with ``autoExclusive`` standing in for the old
+        Built once. A language switch only re-labels them — rebuilding the
+        dock meant queueing deleteLater on the previous dock, panel and menu
+        bar on every switch, and the pile-up eventually wedged the Qt event
+        loop inside ``QMenu.addAction``.
+
+        Qt centres button text, and every translation has a different label
+        width, so a centred column reads as a staircase. QToolBar and
+        QToolButton both ignore ``text-align``; QPushButton honours it, hence
+        a column of those with ``autoExclusive`` in place of the old
         QActionGroup.
         """
-        previous = getattr(self, "_tools_dock", None)
-        if previous is not None:
-            self.removeDockWidget(previous)
-            previous.deleteLater()
-        for tb in self.findChildren(QToolBar):
-            self.removeToolBar(tb)
-
         panel = QWidget(self)
         panel.setStyleSheet(_TOOL_PANEL_QSS)
         layout = QVBoxLayout(panel)
@@ -448,17 +467,11 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
         layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
         self._tool_buttons: Dict[str, QPushButton] = {}
-        active = self._current_state.tool_name if self._current_state else None
         for name in self._tools.names():
-            # display_name() returns "Translated (English)" for non-English
-            # languages so users can still recognise tools by their
-            # English name. For English it returns just the name.
             button = QPushButton(i18n.display_name(f"tool.{name}"), panel)
             button.setCheckable(True)
             button.setAutoExclusive(True)
             button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            if name == active:
-                button.setChecked(True)
             button.clicked.connect(lambda _=False, n=name: self._activate_tool(n))
             self._tool_buttons[name] = button
             layout.addWidget(button)
@@ -470,6 +483,59 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
         self._tools_dock = dock
         self._tools_panel = panel
+
+    def _refresh_tool_labels(self) -> None:
+        """Re-label the tool buttons after a language switch or tab change."""
+        active = self._current_state.tool_name if self._current_state else None
+        for name, button in getattr(self, "_tool_buttons", {}).items():
+            # display_name() returns "Translated (English)" for non-English
+            # languages so users can still recognise tools by their English
+            # name; for English it returns just the name.
+            button.setText(i18n.display_name(f"tool.{name}"))
+            button.setChecked(name == active)
+
+    def _add_panels_menu(self, view_menu: QMenu) -> None:
+        """View ▸ Panels — the only way back to a closed dock.
+
+        A dock closed with its X is just hidden, so without this the panel
+        stays gone for the rest of the session.
+        """
+        panels_menu = QMenu(tr("&Panels"), self)
+        self._panel_actions = []
+        self._panel_action_by_attr = {}
+        for label, attr in _PANEL_DOCKS:
+            dock = getattr(self, attr, None)
+            if dock is None:
+                continue
+            act = QAction(tr(label), self)
+            act.setCheckable(True)
+            # Read the recorded state, not dock.isVisible()/isHidden(): a dock
+            # built moments ago has not been shown yet, so both would report
+            # the wrong thing and every box would start unticked.
+            act.setChecked(self._panel_visibility.get(attr, True))
+            act.toggled.connect(
+                lambda visible, a=attr, d=dock: self._set_panel_visible(a, d, visible)
+            )
+            # Closing the dock with its own X has to untick the box.
+            dock.visibilityChanged.connect(
+                lambda visible, a=attr: self._on_panel_visibility(a, visible)
+            )
+            panels_menu.addAction(act)
+            self._panel_actions.append(act)
+            self._panel_action_by_attr[attr] = act
+        view_menu.addMenu(panels_menu)
+
+    def _set_panel_visible(self, attr: str, dock: QDockWidget, visible: bool) -> None:
+        """Toggled from the View ▸ Panels menu."""
+        self._panel_visibility[attr] = visible
+        dock.setVisible(visible)
+
+    def _on_panel_visibility(self, attr: str, visible: bool) -> None:
+        """The dock was shown or hidden directly, e.g. by its own close button."""
+        self._panel_visibility[attr] = visible
+        action = getattr(self, "_panel_action_by_attr", {}).get(attr)
+        if action is not None and action.isChecked() != visible:
+            action.setChecked(visible)
 
     # ---- tool dispatch ---------------------------------------------------
 
@@ -487,12 +553,14 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
     # ---- project open / save --------------------------------------------
 
     def _new_project(self) -> None:
-        w, ok = QInputDialog.getInt(self, "New Project", "Width", 1024, 1, 30000)
-        if not ok:
+        # Width and height on one sheet: asking for them one after the other
+        # made cancelling the second throw the first away.
+        from .ui.new_project_sheet import NewProjectSheet
+
+        sheet = NewProjectSheet(self)
+        if not sheet.exec():
             return
-        h, ok = QInputDialog.getInt(self, "New Project", "Height", 1024, 1, 30000)
-        if not ok:
-            return
+        w, h = sheet.size()
         manifest = Manifest(
             version=CURRENT_VERSION,
             color_space="sRGB",
@@ -501,13 +569,13 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
             height=h,
             layers=[],
         )
-        path = QFileDialog.getExistingDirectory(self, "New Project Folder")
+        path = QFileDialog.getExistingDirectory(self, tr("New Project Folder"))
         if not path:
             return
         try:
             store = ProjectStore.create(Path(path), manifest)
         except ProjectStoreError as exc:
-            QMessageBox.critical(self, "Cannot create project", str(exc))
+            QMessageBox.critical(self, tr("Cannot create project"), str(exc))
             return
         self._open_project_store(store)
 

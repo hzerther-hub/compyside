@@ -100,7 +100,7 @@ def test_active_tool_is_reflected_on_startup(window):
     window._states[0] = state
     state.tool_name = "brush"
     window._current_state = state
-    window._build_toolbar()
+    window._refresh_tool_labels()
 
     assert window._tool_buttons["brush"].isChecked()
     assert not window._tool_buttons["crop"].isChecked()
@@ -113,11 +113,11 @@ def test_active_tool_is_reflected_on_startup(window):
 
 def test_labels_follow_the_language(window):
     i18n.set_language("zh_CN")
-    window._build_toolbar()
+    window._refresh_tool_labels()
     assert window._tool_buttons["blur"].text() == "模糊 (Blur)"
 
     i18n.set_language("en")
-    window._build_toolbar()
+    window._refresh_tool_labels()
     assert window._tool_buttons["blur"].text() == "Blur"
 
 

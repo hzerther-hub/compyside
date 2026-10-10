@@ -79,6 +79,10 @@ def reload_data() -> None:
 
 _current = "en"
 
+# Language-change listeners. Entries are either a plain callable or a
+# ``weakref.WeakMethod`` wrapping a widget's bound ``_refresh_labels``, so a
+# closed panel or dialog drops out of the list instead of being called back
+# after its Qt object is gone.
 _LISTENERS: List[Callable[[str], None]] = []
 
 
@@ -113,10 +117,21 @@ def set_language(code: str) -> bool:
     if code == _current:
         return False
     _current = code
-    for fn in _LISTENERS:
+    import weakref
+
+    for entry in list(_LISTENERS):
+        if isinstance(entry, weakref.WeakMethod):
+            fn = entry()
+            if fn is None:
+                # The widget went away without unregistering.
+                _LISTENERS.remove(entry)
+                continue
+        else:
+            fn = entry
         try:
             fn(code)
         except Exception:
+            # Losing one refresh is better than losing the whole switch.
             pass
     return True
 
@@ -185,8 +200,18 @@ def display_name(key: str) -> str:
 
 
 def on_change(fn: Callable[[str], None]) -> None:
-    """Register a callback fired when the language switches."""
-    _LISTENERS.append(fn)
+    """Register a callback fired when the language switches.
+
+    A widget's bound method is held weakly: panels and dialogs register
+    themselves in ``__init__`` and never unregister, so a strong reference
+    would keep the listener alive after the widget is closed.
+    """
+    import weakref
+
+    try:
+        _LISTENERS.append(weakref.WeakMethod(fn))  # type: ignore[arg-type]
+    except TypeError:
+        _LISTENERS.append(fn)
 
 
 def untranslated_keys(code: str) -> List[str]:
