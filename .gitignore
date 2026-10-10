@@ -24,3 +24,6 @@ Thumbs.db
 
 # Local editor/agent settings
 .claude/settings.local.json
+
+# Debug screenshots captured while verifying a running build.
+screenshot_running.png
