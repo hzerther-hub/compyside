@@ -71,7 +71,7 @@ jobs:
 
       - name: Upload parity artefacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: parity-${{ matrix.os }}
           path: dist/parity/
@@ -90,7 +90,7 @@ jobs:
         shell: bash
         run: |
           python tools/i18n_coverage.py --threshold 0 | tee dist/i18n-coverage.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: i18n-coverage
           path: dist/i18n-coverage.txt
@@ -117,7 +117,7 @@ jobs:
           briefcase create linux
           briefcase build linux
           briefcase package linux --format deb
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: compositor-linux-deb
           path: dist/*.deb
@@ -141,7 +141,7 @@ jobs:
           briefcase create linux
           briefcase build linux
           briefcase package linux --format appimage
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: compositor-linux-appimage
           path: dist/*.AppImage
@@ -160,7 +160,7 @@ jobs:
           briefcase create windows
           briefcase build windows
           briefcase package windows
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: compositor-windows-msi
           path: dist/*.msi
@@ -179,7 +179,7 @@ jobs:
           briefcase create macOS
           briefcase build macOS
           briefcase package macOS --no-notarize
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: compositor-macos-dmg
           path: dist/*.dmg
