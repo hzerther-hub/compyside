@@ -692,12 +692,13 @@ class MainWindow(DropImportMixin, QMainWindow):
         if top is None or not isinstance(top, ImageLayer):
             self._show_message(tr("Select an image layer first."))
             return
+        # Walk from just below the active layer downwards — starting the
+        # scan at the stack top would hit ``top`` first and bail out.
         below = None
-        for layer in reversed(session.layers):
-            if layer.id == top.id:
-                break
-            if layer.parent_id == top.parent_id:
-                below = layer
+        for i in range(session.layer_index(top.id) - 1, -1, -1):
+            candidate = session.layers[i]
+            if candidate.parent_id == top.parent_id:
+                below = candidate
                 break
         if below is None or not isinstance(below, ImageLayer):
             self._show_message(tr("No image layer below to merge into."))
@@ -1183,48 +1184,6 @@ class MainWindow(DropImportMixin, QMainWindow):
         self._refresh_tool_panels()
         self.statusBar().showMessage(
             tr("Image resized to {w}×{h}").format(w=w, h=h), 5000
-        )
-
-    def _trim_document(self) -> None:
-        if self._current_state is None:
-            return
-        session = self._current_state.session
-        cache = getattr(session, "_image_cache", {})
-        # Composite the document, then trim to the bounding box of alpha>0.
-        composite = self._current_state.canvas._composite()
-        if composite.shape[-1] == 4:
-            alpha = composite[..., 3]
-        else:
-            rgb_max = composite[..., :3].max(axis=-1)
-            alpha = (rgb_max > 0).astype(np.uint8) * 255
-        ys, xs = np.where(alpha > 0)
-        if len(xs) == 0 or len(ys) == 0:
-            self.statusBar().showMessage(tr("Trim: image is empty"), 3000)
-            return
-        x0, x1 = int(xs.min()), int(xs.max()) + 1
-        y0, y1 = int(ys.min()), int(ys.max()) + 1
-        old_w, old_h = session.width, session.height
-        session.resize_canvas(x1 - x0, y1 - y0)
-        # Adjust every layer's transform origin so visible pixels land at
-        # the new top-left.
-        for layer in session.layers:
-            t = layer.transform
-            new_origin = (t.origin[0] - x0, t.origin[1] - y0)
-            session.set_property(layer.id, "transform", Transform(
-                origin=new_origin,
-                size=t.size,
-                rotation=t.rotation,
-                flip_x=t.flip_x,
-                flip_y=t.flip_y,
-                sampling=t.sampling,
-            ))
-        self._current_state.canvas.set_session(session)
-        self._refresh_tool_panels()
-        self.statusBar().showMessage(
-            tr("Trimmed {a}×{b} → {c}×{d}").format(
-                a=old_w, b=old_h, c=x1 - x0, d=y1 - y0
-            ),
-            5000,
         )
 
     # ---- export ----------------------------------------------------------
