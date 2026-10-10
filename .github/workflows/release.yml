@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build + Publish
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            artifact: compositor-linux-deb
+            asset_name: compositor-linux-amd64.deb
+            glob: dist/*.deb
+          - os: ubuntu-22.04
+            artifact: compositor-linux-appimage
+            asset_name: compositor-linux-x86_64.AppImage
+            glob: dist/*.AppImage
+          - os: windows-latest
+            artifact: compositor-windows-msi
+            asset_name: compositor-windows.msi
+            glob: dist/*.msi
+          - os: macos-14
+            artifact: compositor-macos-dmg
+            asset_name: compositor-macos-universal.dmg
+            glob: dist/*.dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-glx libegl1 libxkbcommon-x11-0 \
+                                  libdbus-1-3 libxcb-cursor0 fuse libfuse2
+      - run: pip install briefcase
+      - run: briefcase create $( echo "${{ matrix.os }}" | tr '[:upper:]' '[:lower:]' | sed 's/-.*//' )
+      - run: briefcase build $( echo "${{ matrix.os }}" | tr '[:upper:]' '[:lower:]' | sed 's/-.*//' )
+      - name: Package Linux
+        if: runner.os == 'Linux'
+        run: |
+          briefcase package linux --format deb
+          briefcase package linux --format appimage
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        run: briefcase package windows
+      - name: Package macOS
+        if: runner.os == 'macOS'
+        run: briefcase package macOS --no-notarize
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.glob }}
+      - name: Attach to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.glob }}
+          fail_on_unmatched_files: false

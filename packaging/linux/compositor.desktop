@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Compositor
+GenericName=Image Editor
+Comment=Cross-platform image editor (Photoshop-style layers, masks, effects)
+Exec=compositor %F
+Icon=compositor
+Terminal=false
+StartupNotify=true
+StartupWMClass=Compositor
+Categories=Graphics;Photography;RasterGraphics;
+MimeType=application/x-compositor-project;image/png;image/jpeg;image/tiff;image/heic;image/heif;image/vnd.adobe.photoshop;application/octet-stream;
+Keywords=image;editor;photoshop;layers;compositing;

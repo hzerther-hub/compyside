@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Environments
+.venv/
+venv/
+.env
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Project temp
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+
+# Local editor/agent settings
+.claude/settings.local.json

@@ -1,0 +1,59 @@
+{
+  "format": "com.compositor.project",
+  "version": 11,
+  "colorSpace": "sRGB",
+  "documentID": "47C36D19-8DDC-4A8A-9669-CAB1CCA8CF85",
+  "width": 256,
+  "height": 192,
+  "resolution": 72.0,
+  "layers": [
+    {
+      "id": "D0382608-11BB-43AA-8750-735D93CA40CD",
+      "name": "Sky",
+      "isVisible": true,
+      "isGroup": false,
+      "opacity": 1.0,
+      "blendMode": "Normal",
+      "transform": {
+        "origin": [
+          0,
+          0
+        ],
+        "size": [
+          256,
+          192
+        ],
+        "rotation": 0,
+        "flipX": false,
+        "flipY": false,
+        "sampling": "High quality"
+      },
+      "imageFile": "D0382608-11BB-43AA-8750-735D93CA40CD.png"
+    },
+    {
+      "id": "CAE92412-E92A-4E30-8C31-AB64C7BD836E",
+      "name": "Shapes",
+      "isVisible": true,
+      "isGroup": false,
+      "opacity": 1.0,
+      "blendMode": "Normal",
+      "transform": {
+        "origin": [
+          0,
+          0
+        ],
+        "size": [
+          256,
+          192
+        ],
+        "rotation": 0,
+        "flipX": false,
+        "flipY": false,
+        "sampling": "High quality"
+      },
+      "imageFile": "CAE92412-E92A-4E30-8C31-AB64C7BD836E.png"
+    }
+  ],
+  "guides": [],
+  "activeLayerID": "CAE92412-E92A-4E30-8C31-AB64C7BD836E"
+}

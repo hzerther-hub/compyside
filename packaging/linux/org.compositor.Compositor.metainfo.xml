@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.compositor.Compositor</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Compositor</name>
+  <summary>Cross-platform image editor</summary>
+  <description>
+    <p>
+      A Python + PySide6 port of the Compositor image editor (Photoshop-style
+      layers, masks, blend modes, layer effects, brush engine, selections,
+      filters, camera raw, and PSD/RAW import).
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>24 Photoshop blend modes</li>
+      <li>19 adjustment filters (levels, curves, hue/sat, exposure, B&amp;W, color balance, vignette, bloom, dither, scanlines, tonal contrast, lens correction, remove background, etc.)</li>
+      <li>5 layer effects (drop shadow, inner/outer glow, color overlay, stroke) — CPU path with GLSL shader source for future GPU port</li>
+      <li>16 tools (move, brush, marquee, lasso, polygonal lasso, wand, crop, gradient, shape, type, clone, blur, heal, eyedropper, transform)</li>
+      <li>Camera Raw develop with 8 panels (light/color/curves/mixer/grading/detail/optics/geometry)</li>
+      <li>Multi-line text editor</li>
+      <li>Content-Aware Fill, Select Subject, Free Distort</li>
+      <li>Cross-project layer drag</li>
+      <li>JPEG live-preview export</li>
+      <li>Folder masks, transparent checkerboard, pixel grid at high zoom</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">compositor.desktop</launchable>
+  <icon type="stock">compositor</icon>
+  <categories>
+    <category>Graphics</category>
+    <category>Photography</category>
+    <category>RasterGraphics</category>
+  </categories>
+  <keywords>
+    <keyword>image</keyword>
+    <keyword>editor</keyword>
+    <keyword>photoshop</keyword>
+    <keyword>layers</keyword>
+    <keyword>compositing</keyword>
+  </keywords>
+  <mime_types>
+    <mime_type>application/x-compositor-project</mime_type>
+    <mime_type>image/png</mime_type>
+    <mime_type>image/jpeg</mime_type>
+    <mime_type>image/tiff</mime_type>
+    <mime_type>image/heic</mime_type>
+    <mime_type>image/heif</mime_type>
+    <mime_type>image/vnd.adobe.photoshop</mime_type>
+  </mime_types>
+  <url type="homepage">https://github.com/robbietilton/Compositor</url>
+  <provides>
+    <binary>compositor</binary>
+  </provides>
+  <releases>
+    <release version="0.1.0" date="2026-10-10">
+      <description>
+        First public release of the PySide6 port. Mirrors the Swift app's
+        Photoshop-style workflow; full .comp v11 compatibility; 142 passing
+        unit tests.
+      </description>
+    </release>
+  </releases>
+</component>

@@ -1,0 +1,124 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "compositor-pyside"
+version = "0.1.0"
+description = "Cross-platform PySide6 port of Compositor (image editor)"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "comPySide contributors" }]
+keywords = ["image-editor", "photoshop", "pyside", "qt", "compositing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Graphics :: Editors",
+]
+
+dependencies = [
+    "numpy>=1.24",
+    "Pillow>=10.0",
+    "PySide6>=6.6",
+    "jsonschema>=4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-qt>=4.0",
+]
+heif = ["pillow-heif>=0.16"]
+raw = ["rawpy>=0.18"]
+psd = ["psd-tools>=1.9"]
+i18n = [
+    # Free Google Translate wrapper for `tools/i18n_translate.py`.
+    "deep-translator>=1.11",
+]
+ai = [
+    # Background removal (U²-Net). Model downloads to ~/.u2net/ on first use.
+    "rembg>=2.0",
+    # Resolution-robust inpainting. Model downloads on first call.
+    "simple-lama-inpainting>=0.1",
+    # Real-ESRGAN upscaler. Optional GPU/CPU wheels.
+    "realesrgan-ncnn-py; platform_machine != 'ARM64'",
+]
+ai-sam = [
+    "segment-anything>=1.0",
+    "torch>=2.0",
+]
+
+[project.scripts]
+compositor = "compositor.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra -q"
+
+# ---------------------------------------------------------------------------
+# Briefcase — cross-platform packaging metadata (BeeWare).
+#
+# Run from the repo root on each platform:
+#   briefcase create     # generates the platform scaffold
+#   briefcase build      # builds an installer in dist/
+#   briefcase package    # builds a release artefact (.dmg / .msi / .deb)
+#   briefcase run        # launches the locally-built app
+#
+# Icons live under packaging/<platform>/icon.*. Bundle resource files (Info.plist,
+# .desktop, manifest) live under packaging/<platform>/.
+# ---------------------------------------------------------------------------
+
+[tool.briefcase]
+project_name = "Compositor"
+bundle = "org.compositor"
+version = "0.1.0"
+url = "https://github.com/robbietilton/Compositor"
+license = "MIT"
+author = "comPySide contributors"
+author_email = "devnull@example.com"
+
+[tool.briefcase.app.compositor]
+formal_name = "Compositor"
+description = "Cross-platform PySide6 port of Compositor (image editor)"
+icon = "packaging/macos/icon"          # Briefcase resolves the .icns from this stem
+sources = ["src/compositor"]
+requires = [
+    "numpy>=1.24",
+    "Pillow>=10.0",
+    "PySide6>=6.6",
+    "jsonschema>=4.0",
+]
+
+[tool.briefcase.app.compositor.macOS]
+universal_build = true
+requires = []  # macOS-only extras (e.g. pyobjc) go here.
+min_os_version = "11.0"
+
+[tool.briefcase.app.compositor.windows]
+requires = []
+# MSI signing identity — leave blank for unsigned dev builds.
+identity = ""
+
+[tool.briefcase.app.compositor.linux]
+requires = [
+    "pillow-heif>=0.16",
+    "rawpy>=0.18",
+    "psd-tools>=1.9",
+]
+# apt dependencies installed by `briefcase build linux` on Debian/Ubuntu.
+system_requires = [
+    "libgl1-mesa-glx",
+    "libegl1",
+    "libxkbcommon-x11-0",
+    "libdbus-1-3",
+    "libxcb-cursor0",
+]
+linuxdeploy_plugins = []

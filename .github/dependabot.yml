@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      python-runtime:
+        patterns:
+          - "numpy"
+          - "PySide6"
+          - "Pillow"
+          - "jsonschema"
+          - "pytest"
+          - "pytest-qt"
+      python-optional:
+        patterns:
+          - "pillow-heif"
+          - "rawpy"
+          - "psd-tools"
+          - "briefcase"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
