@@ -1,5 +1,7 @@
 # Compositor (PySide6 port)
 
+English | [简体中文](README.zh-CN.md)
+
 A cross-platform Python port of [robbietilton/Compositor](https://github.com/robbietilton/Compositor) — a Photoshop-style image editor for compositing and photo work, built on PySide6 (Qt 6) and NumPy.
 
 **The full feature set is implemented** (subject to the caveats at the bottom): layers, blend modes, adjustment layers, layer effects, brush engine, selection tools, transforms, crop, color picker, command palette, keyboard shortcuts, multi-project tabs, navigator minimap, export, camera raw, PSD/RAW import, multi-line text, content-aware fill, free distort, JPEG live preview, cross-project layer drag.
@@ -32,7 +34,7 @@ A cross-platform Python port of [robbietilton/Compositor](https://github.com/rob
 - ✅ Rulers, grid, fullscreen
 - ⚠️ **GPU layer effects** — provided as CPU NumPy paths; the Swift app uses Metal shaders (Drop Shadow / Inner Glow / etc.). Our CPU versions render correctly but are slower.
 - ⚠️ **Content-Aware Fill** — pluggable; we ship a no-op stub that defers to Photoshop-style heuristics.
-- ⚠️ **Object Select** — deferred (SAM-style segmentation is research-grade; we ship the wand which solves most cases).
+- ✅ **Object Select** — rectangle + GrabCut by default; upgrades to rembg (U²-Net) or SAM automatically when those packages are installed.
 
 ## AI backends (optional)
 
@@ -115,9 +117,12 @@ If no path is given, the app opens to an empty workspace.
 
 ## i18n
 
-15 languages ship in `src/compositor/i18n_data.json`. Switch via the
-**Help → Language** menu; the choice persists in `QSettings`. Translation
-data lives in JSON so editors don't need to touch Python.
+15 languages ship in `src/compositor/i18n_data.json`. On startup the app
+follows the OS language (falling back to English when there is no match);
+switch anytime via the **Help → Language** menu. Translation data lives in
+JSON so editors don't need to touch Python. Drag & drop is supported too:
+drop image files (or raw image data from a browser/WeChat) onto the window —
+with no project open, one is created automatically sized to the image.
 
 ### Coverage report
 
@@ -165,7 +170,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-142 tests covering the manifest schema, document model, blend modes, pixel ops, project store, layer renderer, brush engine, selections, layer effects, multi-line text, content-aware fill, free distort, lens correction, remove background, GPU shader source, and export.
+199 tests covering the manifest schema, document model, blend modes, pixel ops, project store, layer renderer, brush engine, selections, layer effects, multi-line text, content-aware fill, free distort, lens correction, remove background, GPU shader source, i18n (coverage + language switching), and export.
 
 ## Packaging
 
