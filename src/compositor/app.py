@@ -25,6 +25,8 @@ from PySide6.QtWidgets import (
     QMenu,
     QMenuBar,
     QMessageBox,
+    QPushButton,
+    QSizePolicy,
     QStatusBar,
     QToolBar,
     QVBoxLayout,
@@ -127,6 +129,17 @@ _DOC_FILE_LABELS = {
     "Export &JPEG (live preview)…",
     "Export &As…",
 }
+
+# The tool list on the left edge. ``text-align: left`` is the whole point:
+# Qt centres button text, and every translation has a different label
+# width, which turns the column into a staircase. Left as the native
+# colours otherwise, so the panel follows whatever theme the OS applies.
+_TOOL_PANEL_QSS = """
+QPushButton {
+    text-align: left;
+    padding: 1px 6px;
+}
+"""
 
 
 class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
@@ -394,9 +407,9 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
             act.setEnabled(has_doc)
         for act in getattr(self, "_doc_file_actions", []):
             act.setEnabled(has_doc)
-        toolbar = getattr(self, "_toolbar", None)
-        if toolbar is not None:
-            toolbar.setEnabled(has_doc)
+        tools_dock = getattr(self, "_tools_dock", None)
+        if tools_dock is not None:
+            tools_dock.setEnabled(has_doc)
 
     def _on_tab_changed(self, index: int) -> None:
         self._current_state = self._states.get(index)
@@ -411,32 +424,52 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
         self._current_state.canvas.set_session(self._current_state.session)
 
     def _build_toolbar(self) -> None:
-        # If a previous toolbar exists, remove it first so re-entering this
-        # method (after a language switch) doesn't stack toolbars.
+        """Tool buttons down the left edge, each label flush left.
+
+        Every translation has a different label width, so centre-aligned
+        buttons read as a ragged staircase. QToolBar centres its button text
+        and ignores ``text-align``; QToolButton widgets do too. A QPushButton
+        with ``text-align: left`` actually honours it, so the tool list is a
+        column of those, with ``autoExclusive`` standing in for the old
+        QActionGroup.
+        """
+        previous = getattr(self, "_tools_dock", None)
+        if previous is not None:
+            self.removeDockWidget(previous)
+            previous.deleteLater()
         for tb in self.findChildren(QToolBar):
             self.removeToolBar(tb)
 
-        tb = QToolBar(tr("Tools"), self)
-        tb.setMovable(False)
-        self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, tb)
-        self._toolbar = tb
-        group = QActionGroup(self)
-        group.setExclusive(True)
-        self._tool_actions: Dict[str, QAction] = {}
+        panel = QWidget(self)
+        panel.setStyleSheet(_TOOL_PANEL_QSS)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(0)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+
+        self._tool_buttons: Dict[str, QPushButton] = {}
         active = self._current_state.tool_name if self._current_state else None
         for name in self._tools.names():
             # display_name() returns "Translated (English)" for non-English
             # languages so users can still recognise tools by their
             # English name. For English it returns just the name.
-            label = i18n.display_name(f"tool.{name}")
-            btn = QAction(label, self)
-            btn.setCheckable(True)
+            button = QPushButton(i18n.display_name(f"tool.{name}"), panel)
+            button.setCheckable(True)
+            button.setAutoExclusive(True)
+            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             if name == active:
-                btn.setChecked(True)
-            group.addAction(btn)
-            self._tool_actions[name] = btn
-            btn.triggered.connect(lambda _=False, n=name: self._activate_tool(n))
-            tb.addAction(btn)
+                button.setChecked(True)
+            button.clicked.connect(lambda _=False, n=name: self._activate_tool(n))
+            self._tool_buttons[name] = button
+            layout.addWidget(button)
+
+        dock = QDockWidget(tr("Tools"), self)
+        # A dock would otherwise grow a title bar; the old toolbar had none.
+        dock.setTitleBarWidget(QWidget())
+        dock.setWidget(panel)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
+        self._tools_dock = dock
+        self._tools_panel = panel
 
     # ---- tool dispatch ---------------------------------------------------
 
@@ -446,9 +479,9 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
         tool = self._tools.get(name)
         self._current_state.canvas.set_active_tool(name, tool)
         self._current_state.tool_name = name
-        action = getattr(self, "_tool_actions", {}).get(name)
-        if action is not None:
-            action.setChecked(True)
+        button = getattr(self, "_tool_buttons", {}).get(name)
+        if button is not None:
+            button.setChecked(True)
         self._refresh_tool_panels()
 
     # ---- project open / save --------------------------------------------
