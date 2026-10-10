@@ -41,7 +41,8 @@ class TransformInspector(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
-        layout.addWidget(QLabel(tr("Transform")))
+        self.title_label = QLabel(tr("Transform"))
+        layout.addWidget(self.title_label)
 
         form = QFormLayout()
 
@@ -49,32 +50,37 @@ class TransformInspector(QWidget):
         self.x_spin.setRange(-30000, 30000)
         self.x_spin.setSingleStep(1.0)
         self.x_spin.valueChanged.connect(self._on_x_changed)
-        form.addRow(tr("X"), self.x_spin)
+        self.x_label = QLabel(tr("X"))
+        form.addRow(self.x_label, self.x_spin)
 
         self.y_spin = QDoubleSpinBox()
         self.y_spin.setRange(-30000, 30000)
         self.y_spin.setSingleStep(1.0)
         self.y_spin.valueChanged.connect(self._on_y_changed)
-        form.addRow(tr("Y"), self.y_spin)
+        self.y_label = QLabel(tr("Y"))
+        form.addRow(self.y_label, self.y_spin)
 
         self.w_spin = QDoubleSpinBox()
         self.w_spin.setRange(1, 30000)
         self.w_spin.setSingleStep(1.0)
         self.w_spin.valueChanged.connect(self._on_w_changed)
-        form.addRow(tr("Width"), self.w_spin)
+        self.w_label = QLabel(tr("Width"))
+        form.addRow(self.w_label, self.w_spin)
 
         self.h_spin = QDoubleSpinBox()
         self.h_spin.setRange(1, 30000)
         self.h_spin.setSingleStep(1.0)
         self.h_spin.valueChanged.connect(self._on_h_changed)
-        form.addRow(tr("Height"), self.h_spin)
+        self.h_label = QLabel(tr("Height"))
+        form.addRow(self.h_label, self.h_spin)
 
         self.rot_spin = QDoubleSpinBox()
         self.rot_spin.setRange(-360, 360)
         self.rot_spin.setSingleStep(1.0)
         self.rot_spin.setSuffix("°")
         self.rot_spin.valueChanged.connect(self._on_rotation_changed)
-        form.addRow(tr("Rotation"), self.rot_spin)
+        self.rot_label = QLabel(tr("Rotation"))
+        form.addRow(self.rot_label, self.rot_spin)
 
         layout.addLayout(form)
 
@@ -123,6 +129,19 @@ class TransformInspector(QWidget):
         self._building = False
 
     def _refresh_labels(self, _code: str = "") -> None:
+        """Put the static captions back in the new language.
+
+        ``QFormLayout`` keeps the label widgets, so they are relabelled
+        here rather than rebuilding the form.
+        """
+        self.title_label.setText(tr("Transform"))
+        self.x_label.setText(tr("X"))
+        self.y_label.setText(tr("Y"))
+        self.w_label.setText(tr("Width"))
+        self.h_label.setText(tr("Height"))
+        self.rot_label.setText(tr("Rotation"))
+        self.flip_h_btn.setText(tr("Flip Horizontal"))
+        self.flip_v_btn.setText(tr("Flip Vertical"))
         self._refresh()
 
     def _set_transform_attr(self, attr: str, value) -> None:

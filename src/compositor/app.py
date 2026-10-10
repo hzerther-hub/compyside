@@ -149,15 +149,16 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
         self._layers_panel.add_layer_requested.connect(self._add_layer_kind)
         self._layers_panel.delete_layer_requested.connect(self._delete_layer_id)
         self._layers_panel.selection_changed.connect(self._on_layers_selection_changed)
-        dock = QDockWidget(tr("Layers"), self)
-        dock.setWidget(self._layers_panel)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+        # Kept as attributes so a language switch can retitle the dock.
+        self._layers_dock = QDockWidget(tr("Layers"), self)
+        self._layers_dock.setWidget(self._layers_panel)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._layers_dock)
 
         # Transform Inspector dock.
         self._transform_inspector = TransformInspector(self)
-        ti_dock = QDockWidget(tr("Transform"), self)
-        ti_dock.setWidget(self._transform_inspector)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, ti_dock)
+        self._transform_dock = QDockWidget(tr("Transform"), self)
+        self._transform_dock.setWidget(self._transform_inspector)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._transform_dock)
 
         # Per-project state. Keyed by tab index.
         self._states: Dict[int, "ProjectState"] = {}
@@ -380,6 +381,9 @@ class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
         self._build_menu()
         self._build_toolbar()
         self._refresh_menu_state()
+        # The docks are built once, so their titles need the new language too.
+        self._layers_dock.setWindowTitle(tr("Layers"))
+        self._transform_dock.setWindowTitle(tr("Transform"))
         self._refresh_tool_panels()
         self._refresh_canvas_placeholder()
 

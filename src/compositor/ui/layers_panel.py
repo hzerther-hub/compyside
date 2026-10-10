@@ -74,9 +74,10 @@ class LayersPanel(QWidget):
         il = QVBoxLayout(inspector)
         il.setContentsMargins(0, 0, 0, 0)
 
-        # Blend mode.
+# Blend mode.
         blend_row = QHBoxLayout()
-        blend_row.addWidget(QLabel(tr("Blend")))
+        self.blend_label = QLabel(tr("Blend"))
+        blend_row.addWidget(self.blend_label)
         self.blend_combo = QComboBox()
         for mode in BLEND_MODES:
             self.blend_combo.addItem(mode)
@@ -86,7 +87,8 @@ class LayersPanel(QWidget):
 
         # Opacity.
         op_row = QHBoxLayout()
-        op_row.addWidget(QLabel(tr("Opacity")))
+        self.opacity_label = QLabel(tr("Opacity"))
+        op_row.addWidget(self.opacity_label)
         self.opacity_spin = QDoubleSpinBox()
         self.opacity_spin.setRange(0.0, 1.0)
         self.opacity_spin.setSingleStep(0.05)
@@ -105,7 +107,8 @@ class LayersPanel(QWidget):
 
         # Rename.
         rename_row = QHBoxLayout()
-        rename_row.addWidget(QLabel(tr("Name")))
+        self.name_label = QLabel(tr("Name"))
+        rename_row.addWidget(self.name_label)
         self.name_edit = QLineEdit()
         self.name_edit.editingFinished.connect(self._on_rename)
         rename_row.addWidget(self.name_edit, 1)
@@ -113,15 +116,17 @@ class LayersPanel(QWidget):
 
         layout.addWidget(inspector)
 
-        # Buttons.
+        # Buttons. Kept as attributes so a language switch can relabel them.
         btn_row = QHBoxLayout()
-        for label, kind in (
-            (tr("+ Image"), "image"),
-            (tr("+ Group"), "group"),
-            (tr("+ Adjust"), "adjustment"),
-            (tr("Delete"), "delete"),
+        self._add_buttons = []
+        for key, kind in (
+            ("+ Image", "image"),
+            ("+ Group", "group"),
+            ("+ Adjust", "adjustment"),
+            ("Delete", "delete"),
         ):
-            b = QPushButton(label)
+            b = QPushButton(tr(key))
+            self._add_buttons.append((b, key))
             if kind == "delete":
                 b.clicked.connect(self._on_delete)
             else:
@@ -157,7 +162,18 @@ class LayersPanel(QWidget):
         self._building = False
 
     def _refresh_labels(self, _code: str = "") -> None:
-        """Re-render labels after a language switch."""
+        """Re-render labels after a language switch.
+
+        The static captions are set once in ``__init__``, so switching
+        language has to put the new text back — repopulating the list alone
+        would leave them in the previous language.
+        """
+        self.blend_label.setText(tr("Blend"))
+        self.opacity_label.setText(tr("Opacity"))
+        self.name_label.setText(tr("Name"))
+        self.visible_btn.setText(tr("Visible"))
+        for button, key in self._add_buttons:
+            button.setText(tr(key))
         self._refresh()
 
     def _refresh_inspector(self) -> None:
