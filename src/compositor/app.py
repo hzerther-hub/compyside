@@ -59,6 +59,7 @@ from .tools.base import ToolContext
 from .ui.brush_controls import BrushControls
 from .ui.canvas import CanvasWidget
 from .ui.drop_import import DropImportMixin
+from .ui.photoshop_ui import PhotoshopBridgeMixin
 from .ui.command_palette import CommandPaletteDialog
 from .ui.export_sheet import ExportAsSheet, JpegPreviewSheet
 from .ui.keyboard_shortcuts import KeyboardShortcuts, KeyboardShortcutsDialog
@@ -128,7 +129,7 @@ _DOC_FILE_LABELS = {
 }
 
 
-class MainWindow(DropImportMixin, QMainWindow):
+class MainWindow(DropImportMixin, PhotoshopBridgeMixin, QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(tr("app_title"))
@@ -148,13 +149,13 @@ class MainWindow(DropImportMixin, QMainWindow):
         self._layers_panel.add_layer_requested.connect(self._add_layer_kind)
         self._layers_panel.delete_layer_requested.connect(self._delete_layer_id)
         self._layers_panel.selection_changed.connect(self._on_layers_selection_changed)
-        dock = QDockWidget("Layers", self)
+        dock = QDockWidget(tr("Layers"), self)
         dock.setWidget(self._layers_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
 
         # Transform Inspector dock.
         self._transform_inspector = TransformInspector(self)
-        ti_dock = QDockWidget("Transform", self)
+        ti_dock = QDockWidget(tr("Transform"), self)
         ti_dock.setWidget(self._transform_inspector)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, ti_dock)
 
@@ -197,6 +198,11 @@ class MainWindow(DropImportMixin, QMainWindow):
             if menu_label in _DOC_MENUS:
                 self._doc_menu_actions.append(menu.menuAction())
             for label, sequence, fn in items:
+                # An empty label is a separator — keep the tuple shape so
+                # menus can interleave dividers without a second list format.
+                if not label:
+                    menu.addSeparator()
+                    continue
                 act = QAction(tr(label), self)
                 if sequence:
                     parsed = QKeySequence(sequence)
@@ -278,6 +284,17 @@ class MainWindow(DropImportMixin, QMainWindow):
             ("Toggle &Fullscreen", self._shortcuts.get("View > Toggle Fullscreen"), self._toggle_fullscreen),
         ])
         add("&Tools", self._tool_menu_items())
+        add("&Photoshop", [
+            ("&Connect to Photoshop…", "", self._photoshop_connect),
+            ("&Disconnect", "", self._photoshop_disconnect),
+            ("", "", lambda: None),  # separator
+            ("Send &Layers to Photoshop", "", self._photoshop_send_layers),
+            ("Send &Merged Image to Photoshop", "", self._photoshop_send_merged),
+            ("&Pull Active Document from Photoshop", "", self._photoshop_pull),
+            ("", "", lambda: None),  # separator
+            ("Run &ExtendScript…", "", self._photoshop_run_script),
+            ("Photoshop &Info", "", self._photoshop_info),
+        ])
         help_menu = add("&Help", [
             ("&Commands", self._shortcuts.get("Help > Commands"), self._open_command_palette),
             ("&About", "", self._about),
@@ -304,6 +321,8 @@ class MainWindow(DropImportMixin, QMainWindow):
         self._command_index = {}
         for menu, items in self._menus.items():
             for label, _, fn in items:
+                if not label:
+                    continue  # separator
                 stripped = label.replace("&", "")
                 self._command_index[f"{tr(menu).replace('&', '')} > {tr(label).replace('&', '')}"] = fn
                 self._command_index[f"{stripped}"] = fn  # also register English form
@@ -334,7 +353,7 @@ class MainWindow(DropImportMixin, QMainWindow):
             "eyedropper": "I",
         }
         for name in self._tools.names():
-            label = name.replace("-", " ").title()
+            label = tr(name.replace("-", " ").title())
             seq = shortcuts.get(name, "")
             out.append((label, seq, self._make_tool_activator(name)))
         return out

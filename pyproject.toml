@@ -35,6 +35,9 @@ dev = [
 heif = ["pillow-heif>=0.16"]
 raw = ["rawpy>=0.18"]
 psd = ["psd-tools>=1.9"]
+# Photoshop bridge: its ExtendScript listener protocol needs 3DES-CBC.
+# `cryptography` works as a fallback when it is already installed.
+photoshop = ["pycryptodome>=3.9"]
 i18n = [
     # Free Google Translate wrapper for `tools/i18n_translate.py`.
     "deep-translator>=1.11",
@@ -99,11 +102,11 @@ requires = [
 
 [tool.briefcase.app.compositor.macOS]
 universal_build = true
-requires = []  # macOS-only extras (e.g. pyobjc) go here.
+requires = ["psd-tools>=1.9", "pycryptodome>=3.9"]
 min_os_version = "11.0"
 
 [tool.briefcase.app.compositor.windows]
-requires = []
+requires = ["psd-tools>=1.9", "pycryptodome>=3.9"]
 # MSI signing identity — leave blank for unsigned dev builds.
 identity = ""
 
@@ -112,6 +115,7 @@ requires = [
     "pillow-heif>=0.16",
     "rawpy>=0.18",
     "psd-tools>=1.9",
+    "pycryptodome>=3.9",
 ]
 # apt dependencies installed by `briefcase build linux` on Debian/Ubuntu.
 system_requires = [

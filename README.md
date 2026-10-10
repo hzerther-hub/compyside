@@ -24,7 +24,8 @@ A cross-platform Python port of [robbietilton/Compositor](https://github.com/rob
 - ✅ Eyedropper
 - ✅ Color picker dialog (HSV)
 - ✅ Camera Raw engine (rawpy demosaic + 13 NumPy develop controls)
-- ✅ PSD/PSB import (psd-tools)
+- ✅ PSD/PSB import (psd-tools) — layers, groups, real offsets, all blend modes, user masks and matching adjustment layers, plus a conversion report of everything that had to be rasterised
+- ✅ Photoshop bridge — talk to a running Photoshop over its ExtendScript listener: send layers or the merged image out, pull the active document back, run scripts, subscribe to events
 - ✅ Camera RAW import (rawpy)
 - ✅ Command palette (⌘F fuzzy search)
 - ✅ Keyboard shortcuts (remappable, JSON-backed)
@@ -94,10 +95,11 @@ device.
 pip install -e .
 ```
 
-Or with the optional HEIF, camera-RAW and PSD readers:
+Or with the optional HEIF, camera-RAW and PSD readers, plus the Photoshop
+bridge:
 
 ```bash
-pip install -e ".[heif,raw,psd]"
+pip install -e ".[heif,raw,psd,photoshop]"
 ```
 
 Tested on **Python 3.8+** with **PySide6 ≥ 6.6**, **NumPy ≥ 1.24**, **Pillow ≥ 10**.
@@ -115,6 +117,40 @@ compositor /path/to/Example.comp
 ```
 
 If no path is given, the app opens to an empty workspace.
+
+## Photoshop bridge
+
+The **Photoshop** menu talks to a running Photoshop through its built-in
+ExtendScript listener on TCP port 49494. Install the crypto backend first:
+
+```bash
+pip install -e ".[photoshop]"
+```
+
+In Photoshop, turn on *Edit ▸ Preferences ▸ Plug-ins ▸ Enable scripting*. If
+your listener is configured with a password, enter the same one in the
+connect sheet (it can be remembered in `QSettings`; leave it blank if there
+is none).
+
+| Menu entry | What it does |
+|---|---|
+| Connect to Photoshop… / Disconnect | Open or close the socket connection |
+| Send Layers to Photoshop | Renders every visible image layer and drops them into one Photoshop document, preserving order, position, opacity and blend mode |
+| Send Merged Image to Photoshop | Renders the whole document and opens it as a new Photoshop image |
+| Pull Active Document from Photoshop | Asks Photoshop to save its active document as PSD and imports it as a new `.comp` project |
+| Run ExtendScript… | A small console that evaluates arbitrary ExtendScript and shows the result |
+| Photoshop Info | Reports the Photoshop version, open document count and the active document's layers |
+
+Groups are flattened to `Group/Layer` names on the way out, and adjustment
+layers are skipped (Photoshop would need live adjustment layers, which this
+transfer does not build) — the status bar names whatever was skipped.
+
+The wire protocol was reverse-engineered by
+[pyps / photoshopConnection](https://github.com/theiviaxx/photoshopConnection);
+`io/photoshop_bridge.py` reimplements it with a background reader thread, so
+commands and subscribed events never block each other. Subscribe from Python
+with `conn.subscribe("toolChanged", callback)` for events such as
+`currentDocumentChanged`, `toolChanged` and `foregroundColorChanged`.
 
 ## i18n
 
@@ -171,7 +207,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-199 tests covering the manifest schema, document model, blend modes, pixel ops, project store, layer renderer, brush engine, selections, layer effects, multi-line text, content-aware fill, free distort, lens correction, remove background, GPU shader source, i18n (coverage + language switching), and export.
+255 tests covering the manifest schema, document model, blend modes, pixel ops, project store, layer renderer, brush engine, selections, layer effects, multi-line text, content-aware fill, free distort, lens correction, remove background, GPU shader source, i18n (coverage + language switching), export, PSD import (against generated fixtures), the Photoshop transfer, and the bridge protocol (against a stub listener).
 
 ## Packaging
 
@@ -213,11 +249,13 @@ src/compositor/
 ├── rendering/      # blend_modes, pixel_ops, layer_renderer, brush, selections,
 │                   # layer_effects, adjustments, export
 ├── io/             # project_store (atomic write), image_importer,
-│                   # project_watcher (live reload), raw_importer, psd_importer
+│                   # project_watcher (live reload), raw_importer, psd_importer,
+│                   # photoshop_bridge (ExtendScript socket protocol)
 ├── tools/          # base Tool + 15 concrete tools (brush, marquee, lasso, wand,
 │                   # move, crop, gradient, shape, type, clone, blur, heal, eyedropper)
 ├── ui/             # canvas (QWidget + paint event), panels, sheets,
-│                   # command_palette, keyboard_shortcuts, project_tabs
+│                   # command_palette, keyboard_shortcuts, project_tabs,
+│                   # drop_import, import_report, photoshop_ui
 └── app.py          # Qt shell: menus, toolbar, tabs, watcher, undo/redo
 ```
 

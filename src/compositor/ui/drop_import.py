@@ -24,7 +24,7 @@ from ..document.editor_session import EditorSession
 from ..document.layers import ImageLayer, Transform, new_id
 from ..format.manifest import CURRENT_VERSION, Manifest
 from ..io import image_importer
-from ..io.image_importer import encode_png
+from ..io.image_importer import encode_png, encode_png_mask
 from ..io.project_store import ProjectStore, ProjectStoreError
 
 
@@ -129,45 +129,64 @@ class DropImportMixin:
         self.open_project(target)
 
     def import_psd(self, path: Path) -> None:
-        """Open a PSD/PSB as a new project."""
+        """Open a PSD/PSB as a new .comp project."""
         from ..io.psd_importer import import_psd
+
         try:
             result = import_psd(path)
         except RuntimeError as exc:
-            QMessageBox.critical(self, "PSD import failed", str(exc))
+            QMessageBox.critical(self, tr("PSD import failed"), str(exc))
             return
-        # Create a new .comp project from the imported data.
+        self.open_imported_project(result, default_stem=path.stem)
+
+    def open_imported_project(self, result: dict, *, default_stem: str) -> bool:
+        """Write an ``import_psd`` result out as a new .comp project and open it.
+
+        Shared by the PSD drop and by pulling a document out of Photoshop.
+        Returns whether a project was actually created.
+        """
         from ..format.manifest import Manifest
         from ..document.editor_session import EditorSession
-        from ..document.layers import ImageLayer, new_id
-        target = QFileDialog.getExistingDirectory(self, "Choose folder for imported project")
+        from .import_report import show_import_report
+
+        target = QFileDialog.getExistingDirectory(
+            self, tr("Choose folder for imported project")
+        )
         if not target:
-            return
-        target_path = Path(target) / (path.stem + ".comp")
+            return False
+
+        target_path = Path(target) / (default_stem + ".comp")
         manifest = Manifest(
             version=CURRENT_VERSION,
             color_space="sRGB",
             document_id=new_id(),
             width=result["width"],
             height=result["height"],
-            layers=[],
+            layers=result["layers"],
         )
-        proj = ProjectStore.create(target_path, manifest)
+        try:
+            proj = ProjectStore.create(target_path, manifest)
+        except ProjectStoreError as exc:
+            QMessageBox.critical(self, tr("Cannot create project"), str(exc))
+            return False
+
         session = EditorSession(width=manifest.width, height=manifest.height)
         session.load_manifest_layers(result["layers"])
-        cache = {}
-        for entry in result["layers"]:
-            if "pixels" in entry:
-                cache[entry["id"]] = entry["pixels"]
-                # Strip the temporary "pixels" key before writing the manifest.
-                entry.pop("pixels", None)
-        manifest.layers = result["layers"]
+        # ``pixels``/``masks`` hold the bitmaps the manifest only names.
         for layer in session.layers:
-            if isinstance(layer, ImageLayer) and layer.id in cache:
-                png_bytes = encode_png(cache[layer.id])
-                proj.write_image(layer.id, png_bytes)
+            if not isinstance(layer, ImageLayer) or not layer.image_file:
+                continue
+            pixels = result["pixels"].get(layer.id)
+            if pixels is not None:
+                proj.write_image(layer.id, encode_png(pixels))
+            mask = result["masks"].get(layer.id)
+            if mask is not None:
+                proj.write_image(layer.id, encode_png_mask(mask), mask=True)
         proj.save_manifest(manifest)
+
+        show_import_report(self, title=default_stem, result=result)
         self.open_project(target_path)
+        return True
 
     def import_raw(self, path: Path) -> None:
         """Open a camera RAW file as a new layer."""

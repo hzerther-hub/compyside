@@ -4,7 +4,7 @@
 
 [robbietilton/Compositor](https://github.com/robbietilton/Compositor) 的跨平台 Python 移植版——一款 Photoshop 风格的图像编辑器，用于合成与照片后期处理，基于 PySide6（Qt 6）和 NumPy 构建。
 
-**全部功能均已实现**（少量例外见下方说明）：图层、混合模式、调整图层、图层效果、画笔引擎、选区工具、变换、裁剪、取色器、命令面板、快捷键、多项目标签页、导航器小地图、导出、Camera Raw、PSD/RAW 导入、多行文本、内容识别填充、自由扭曲、JPEG 实时预览、跨项目图层拖放。
+**全部功能均已实现**（少量例外见下方说明）：图层、混合模式、调整图层、图层效果、画笔引擎、选区工具、变换、裁剪、取色器、命令面板、快捷键、多项目标签页、导航器小地图、导出、Camera Raw、PSD/RAW 导入、Photoshop 桥接、多行文本、内容识别填充、自由扭曲、JPEG 实时预览、跨项目图层拖放。
 
 ## 状态
 
@@ -24,7 +24,8 @@
 - ✅ 吸管
 - ✅ 拾色器对话框（HSV）
 - ✅ Camera Raw 引擎（rawpy 去马赛克 + 13 项 NumPy 显影控制）
-- ✅ PSD/PSB 导入（psd-tools）
+- ✅ PSD/PSB 导入（psd-tools）—— 图层、组、真实画布偏移、全部混合模式、用户蒙版，以及能对应上的调整图层；无法保留的部分会列在导入报告中
+- ✅ Photoshop 桥接——通过 Photoshop 内置的 ExtendScript 监听器与运行中的 Photoshop 通信：把图层或合并图像发过去、把当前文档拉回来、运行脚本、订阅事件
 - ✅ 相机 RAW 导入（rawpy）
 - ✅ 命令面板（⌘F 模糊搜索）
 - ✅ 键盘快捷键（可自定义映射，JSON 存储）
@@ -78,10 +79,10 @@ pip install -e ".[ai-sam]"   # 可选，体积较大
 pip install -e .
 ```
 
-或连同可选的相机 RAW / HEIF / PSD 读取器一起安装：
+或连同可选的相机 RAW / HEIF / PSD 读取器以及 Photoshop 桥接一起安装：
 
 ```bash
-pip install -e ".[heif,raw,psd]"
+pip install -e ".[heif,raw,psd,photoshop]"
 ```
 
 已在 **Python 3.8+**、**PySide6 ≥ 6.6**、**NumPy ≥ 1.24**、**Pillow ≥ 10** 下测试。
@@ -99,6 +100,36 @@ compositor /path/to/Example.comp
 ```
 
 不指定路径时，应用以空工作区启动。
+
+## Photoshop 桥接
+
+**Photoshop** 菜单通过内置的 ExtendScript 监听器（TCP 49494 端口）与运行中的
+Photoshop 通信。先安装加密后端：
+
+```bash
+pip install -e ".[photoshop]"
+```
+
+在 Photoshop 中打开 *编辑 ▸ 首选项 ▸ 插件 ▸ 启用脚本*。如果你的监听器设置了
+密码，在连接对话框里填入相同的密码（可选择记住，保存在 `QSettings` 中；没有
+设置密码则留空）。
+
+| 菜单项 | 作用 |
+|---|---|
+| 连接到 Photoshop… / 断开连接 | 建立或关闭套接字连接 |
+| 将图层发送到 Photoshop | 渲染每个可见图像图层，放入同一个 Photoshop 文档，保留顺序、位置、不透明度与混合模式 |
+| 将合并后的图像发送到 Photoshop | 渲染整个文档并作为新图像在 Photoshop 中打开 |
+| 从 Photoshop 拉取当前文档 | 让 Photoshop 把当前文档存为 PSD，并导入为新的 `.comp` 项目 |
+| 运行 ExtendScript… | 可执行任意 ExtendScript 并显示结果的小控制台 |
+| Photoshop 信息 | 显示 Photoshop 版本、打开的文档数量以及当前文档的图层 |
+
+发送时组会被拍平成 `组/图层` 的命名，调整图层会被跳过（要真正送到 Photoshop
+需要构建实时的调整图层，本次传输不做这件事）——状态栏会列出被跳过的项。
+
+该协议由 [pyps / photoshopConnection](https://github.com/theiviaxx/photoshopConnection)
+逆向分析得出；`io/photoshop_bridge.py` 用后台读取线程重新实现了它，因此命令与
+订阅的事件互不阻塞。在 Python 中可用 `conn.subscribe("toolChanged", callback)`
+订阅 `currentDocumentChanged`、`toolChanged`、`foregroundColorChanged` 等事件。
 
 ## 多语言（i18n）
 
@@ -143,7 +174,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-共 199 个测试，覆盖清单模式、文档模型、混合模式、像素操作、项目存储、图层渲染器、画笔引擎、选区、图层效果、多行文本、内容识别填充、自由扭曲、镜头校正、背景移除、GPU 着色器源码、多语言（覆盖率 + 语言切换）与导出。
+共 255 个测试，覆盖清单模式、文档模型、混合模式、像素操作、项目存储、图层渲染器、画笔引擎、选区、图层效果、多行文本、内容识别填充、自由扭曲、镜头校正、背景移除、GPU 着色器源码、多语言（覆盖率 + 语言切换）、导出、PSD 导入（使用程序化生成的样本）以及 Photoshop 桥接协议（使用模拟监听器）。
 
 ## 打包
 
@@ -183,11 +214,13 @@ src/compositor/
 ├── rendering/      # blend_modes、pixel_ops、layer_renderer、brush、selections、
 │                   # layer_effects、adjustments、export
 ├── io/             # project_store（原子写入）、image_importer、
-│                   # project_watcher（实时重载）、raw_importer、psd_importer
+│                   # project_watcher（实时重载）、raw_importer、psd_importer、
+│                   # photoshop_bridge（ExtendScript 套接字协议）
 ├── tools/          # Tool 基类 + 15 个具体工具（画笔、选框、套索、魔棒、
 │                   # 移动、裁剪、渐变、形状、文字、仿制、模糊、修复、吸管等）
 ├── ui/             # canvas（QWidget + 绘制事件）、面板、对话框、
-│                   # command_palette、keyboard_shortcuts、project_tabs
+│                   # command_palette、keyboard_shortcuts、project_tabs、
+│                   # drop_import、import_report、photoshop_ui
 └── app.py          # Qt 外壳：菜单、工具栏、标签页、文件监视、撤销/重做
 ```
 
