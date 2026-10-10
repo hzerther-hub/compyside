@@ -35,6 +35,7 @@ A cross-platform Python port of [robbietilton/Compositor](https://github.com/rob
 - ⚠️ **GPU layer effects** — provided as CPU NumPy paths; the Swift app uses Metal shaders (Drop Shadow / Inner Glow / etc.). Our CPU versions render correctly but are slower.
 - ⚠️ **Content-Aware Fill** — pluggable; we ship a no-op stub that defers to Photoshop-style heuristics.
 - ✅ **Object Select** — rectangle + GrabCut by default; upgrades to rembg (U²-Net) or SAM automatically when those packages are installed.
+- ✅ **Drag & drop import** — drop image files (or raw image data from a browser/WeChat) straight onto the window; with no project open, one is created automatically sized to the image.
 
 ## AI backends (optional)
 
@@ -93,7 +94,7 @@ device.
 pip install -e .
 ```
 
-Or with the optional camera-RAW and PSD readers:
+Or with the optional HEIF, camera-RAW and PSD readers:
 
 ```bash
 pip install -e ".[heif,raw,psd]"
